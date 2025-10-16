@@ -1,16 +1,6 @@
 import { snapshotTest } from "@cliffy/testing"
 import { commentCommand } from "../../../src/commands/issue/comment.ts"
-import { MockLinearServer } from "../../utils/mock_linear_server.ts"
-
-// Common Deno args for permissions
-const denoArgs = [
-  "--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,SNAPSHOT_TEST_NAME",
-  "--allow-read",
-  "--allow-write",
-  "--allow-run",
-  "--allow-net",
-  "--quiet",
-]
+import { commonDenoArgs, setupMockLinearServer } from "../../utils/test-helpers.ts"
 
 // Test help output
 await snapshotTest({
@@ -18,7 +8,7 @@ await snapshotTest({
   meta: import.meta,
   colors: false,
   args: ["--help"],
-  denoArgs,
+  denoArgs: commonDenoArgs,
   async fn() {
     await commentCommand.parse()
   },
@@ -30,9 +20,9 @@ await snapshotTest({
   meta: import.meta,
   colors: false,
   args: ["--issue", "TEST-123", "This is a test comment."],
-  denoArgs,
+  denoArgs: commonDenoArgs,
   async fn() {
-    const server = new MockLinearServer([
+    const { cleanup } = await setupMockLinearServer([
       {
         queryName: "CommentCreate",
         variables: {
@@ -53,15 +43,9 @@ await snapshotTest({
     ])
 
     try {
-      await server.start()
-      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
-      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
-
       await commentCommand.parse()
     } finally {
-      await server.stop()
-      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
-      Deno.env.delete("LINEAR_API_KEY")
+      await cleanup()
     }
   },
 })
@@ -72,9 +56,9 @@ await snapshotTest({
   meta: import.meta,
   colors: false,
   args: ["-i", "PROJ-456", "Another comment with short flag."],
-  denoArgs,
+  denoArgs: commonDenoArgs,
   async fn() {
-    const server = new MockLinearServer([
+    const { cleanup } = await setupMockLinearServer([
       {
         queryName: "CommentCreate",
         variables: {
@@ -95,15 +79,9 @@ await snapshotTest({
     ])
 
     try {
-      await server.start()
-      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
-      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
-
       await commentCommand.parse()
     } finally {
-      await server.stop()
-      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
-      Deno.env.delete("LINEAR_API_KEY")
+      await cleanup()
     }
   },
 })
@@ -114,9 +92,9 @@ await snapshotTest({
   meta: import.meta,
   colors: false,
   args: ["--issue", "TEST-999", "This comment will fail."],
-  denoArgs,
+  denoArgs: commonDenoArgs,
   async fn() {
-    const server = new MockLinearServer([
+    const { cleanup } = await setupMockLinearServer([
       {
         queryName: "CommentCreate",
         variables: {
@@ -135,19 +113,11 @@ await snapshotTest({
     ])
 
     try {
-      await server.start()
-      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
-      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
-
-      try {
-        await commentCommand.parse()
-      } catch (_error) {
-        // Expected to exit with error
-      }
+      await commentCommand.parse()
+    } catch (_error) {
+      // Expected to exit with error due to failed comment creation
     } finally {
-      await server.stop()
-      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
-      Deno.env.delete("LINEAR_API_KEY")
+      await cleanup()
     }
   },
 })
